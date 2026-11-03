@@ -41,7 +41,8 @@ def _option_facts(o: TripOption) -> dict:
         "board_stop": o.board_stop.name if o.board_stop else None,
         "alight_stop": o.alight_stop.name if o.alight_stop else None,
         "walk_to_stop_min": minutes(o.walk_to_stop_s),
-        "bus_in_min": minutes(o.wait_s),
+        # B's wait_s is time at the stop after walking there; the bus ETA from now is both.
+        "bus_in_min": minutes(o.walk_to_stop_s + o.wait_s),
         "ride_min": minutes(o.ride_s),
         "walk_from_stop_min": minutes(o.walk_from_stop_s),
         "arrive": hhmm(o.arrive_at),

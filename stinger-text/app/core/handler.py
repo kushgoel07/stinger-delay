@@ -21,7 +21,6 @@ favour of the deterministic template.
 from __future__ import annotations
 
 import logging
-import math
 import os
 import threading
 from datetime import datetime, time as dtime
@@ -199,8 +198,8 @@ def _answer(uid: str, query: str) -> list[str]:
             session.set_pending(uid, query)
             return [_with_footer(ASK_PIN_TEXT)]
         origin: LatLng = pin
-        far_m = router_distance(origin)
-        if far_m > params.CAMPUS_RADIUS_M:
+        if router.far_from_campus(origin):
+            far_m = router_distance(origin)
             session.set_pending(uid, query)
             return [_with_footer(f"Your pin is about {far_m / 1000:.1f} km from campus. Drop a new pin on "
                                  "campus or tell me which building you're at.")]
@@ -215,11 +214,8 @@ def _answer(uid: str, query: str) -> list[str]:
 
 
 def router_distance(loc: LatLng) -> float:
-    """Meters from campus center (haversine)."""
-    lat0, lng0 = map(math.radians, params.CAMPUS_CENTER)
-    lat1, lng1 = math.radians(loc.lat), math.radians(loc.lng)
-    h = math.sin((lat1 - lat0) / 2) ** 2 + math.cos(lat0) * math.cos(lat1) * math.sin((lng1 - lng0) / 2) ** 2
-    return 2 * 6371000.0 * math.asin(math.sqrt(h))
+    """Meters from campus center, using B's router helpers."""
+    return router.haversine_m(loc, LatLng(params.CAMPUS_CENTER_LAT, params.CAMPUS_CENTER_LNG))
 
 
 def _deadline_dt(hhmm: Optional[str], now: datetime) -> Optional[datetime]:

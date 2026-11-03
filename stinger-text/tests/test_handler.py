@@ -7,7 +7,10 @@ from app.core import fallback, handler
 from app.core.grok import GrokClient, Intent, Reply
 from app.data import clock, sources
 from app.messaging import session
-from app.models import Inbound, LatLng
+from datetime import timedelta
+
+from app.models import Inbound, LatLng, Stop, TripOption, TripPlan
+from app.routing import router
 from tests.fakes import FakeGrok, FakeOpenAI, tool_response
 
 KLAUS_PIN = LatLng(33.7771, -84.3963)
@@ -27,6 +30,31 @@ def good_reply(facts):
     return Reply(f"Just walk, arrive {facts['walk_only']['arrive']}.", False)
 
 
+def _bus_wins_plan(origin, dest, deadline=None):
+    """Fixed plan where the Red bus beats walking, so handler tests don't depend on B's live routing."""
+    now = clock.now()
+    board = Stop(route_stop_id=268, route_id=20, name="Ferst Dr at Klaus", loc=LatLng(33.7775, -84.3956), seq=1)
+    alight = Stop(route_stop_id=270, route_id=20, name="West Village", loc=LatLng(33.7797, -84.4049), seq=4)
+    bus = TripOption(kind="bus", route_id=20, route_name="Red", board_stop=board, alight_stop=alight,
+                     walk_to_stop_s=60, wait_s=240, ride_s=180, walk_from_stop_s=60,
+                     arrive_at=now + timedelta(minutes=8), slip_class="slightly_late", slip_buffer_s=60)
+    walk = TripOption(kind="walk", route_id=None, route_name=None, board_stop=None, alight_stop=None,
+                      walk_to_stop_s=0, wait_s=0, ride_s=0, walk_from_stop_s=900,
+                      arrive_at=now + timedelta(minutes=15), slip_class="unknown", slip_buffer_s=0)
+    if deadline is None:
+        verdict = "NO_DEADLINE"
+    else:
+        slack = (deadline - (bus.arrive_at + timedelta(seconds=bus.slip_buffer_s))).total_seconds()
+        verdict = "MAKE_IT" if slack >= 180 else ("TIGHT" if slack > -180 else "WONT_MAKE_IT")
+    return TripPlan(origin=origin, dest=dest, now=now, deadline=deadline, best=bus, walk=walk,
+                    alternatives=[], verdict=verdict, mode=sources.mode())
+
+
+@pytest.fixture
+def bus_wins(monkeypatch):
+    monkeypatch.setattr(router, "plan_trip", _bus_wins_plan)
+
+
 def body(reply: str) -> str:
     return fallback.FOOTER_RE.sub("", reply)
 
@@ -34,15 +62,13 @@ def body(reply: str) -> str:
 @pytest.fixture(autouse=True)
 def reset():
     session.clear_all()
-    sources.force_mode(None)
     clock.set_demo("Tue", "12:00")
     yield
     handler.set_grok(None)
-    sources.force_mode(None)
     clock.set_demo("Tue", "12:00")
 
 
-def test_happy_path_uses_grok_reply_and_footer():
+def test_happy_path_uses_grok_reply_and_footer(bus_wins):
     fake = FakeGrok(intent=Intent(True, "west_village", "PIN", "12:15"), reply=good_reply)
     handler.set_grok(fake)
     session.set_location(USER, KLAUS_PIN)
@@ -54,15 +80,18 @@ def test_happy_path_uses_grok_reply_and_footer():
     assert facts["deadline"] == "12:15" and facts["destination"] == "West Village"
 
 
-def test_footer_live_mode():
+def test_footer_live_mode(monkeypatch):
     handler.set_grok(FakeGrok(intent=Intent(True, "west_village", "PIN", None), reply=good_reply))
-    sources.force_mode("LIVE")
+    # Live mode without touching the network: serve the replay frame as the live cache.
+    rows = sources.replay_arrivals()
+    clock.set_live()
+    monkeypatch.setattr(sources, "get_arrivals", lambda: rows)
     session.set_location(USER, KLAUS_PIN)
     out = handler.handle(msg("WV?"))
     assert out[0].endswith(" [LIVE]")
 
 
-def test_fallback_when_grok_blocked():
+def test_fallback_when_grok_blocked(bus_wins):
     handler.set_grok(FakeGrok(round1_error=True, round2_error=True))
     session.set_location(USER, KLAUS_PIN)
     out = handler.handle(msg("Can I make it to West Village by 12:15?"))
@@ -72,7 +101,7 @@ def test_fallback_when_grok_blocked():
     assert FOOTER_TUE_12.search(out[0])
 
 
-def test_fallback_when_grok_slow_real_client_3s_timeout():
+def test_fallback_when_grok_slow_real_client_3s_timeout(bus_wins):
     def responder(kw):
         if "response_format" in kw:
             time.sleep(3.5)  # Round 2 hangs
@@ -96,7 +125,7 @@ def test_round1_failure_falls_back_to_local_parser():
     assert FOOTER_TUE_12.search(out[0])
 
 
-def test_reply_with_invented_numbers_replaced_by_template():
+def test_reply_with_invented_numbers_replaced_by_template(bus_wins):
     handler.set_grok(FakeGrok(intent=Intent(True, "west_village", "PIN", "12:15"),
                               reply=Reply("MAKE IT. Bus in 99 min, arrive 13:37.", False)))
     session.set_location(USER, KLAUS_PIN)
@@ -105,7 +134,7 @@ def test_reply_with_invented_numbers_replaced_by_template():
     assert "Walking takes" in out[0]
 
 
-def test_pin_then_question():
+def test_pin_then_question(bus_wins):
     handler.set_grok(FakeGrok(intent=Intent(True, "west_village", "PIN", "12:10"), reply=good_reply))
     out1 = handler.handle(msg(loc=KLAUS_PIN))
     assert body(out1[0]) == handler.GOT_LOCATION_TEXT

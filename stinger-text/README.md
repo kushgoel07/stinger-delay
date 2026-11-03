@@ -26,14 +26,11 @@ and a deterministic template stands in for Round 2.
 | `app/models.py` | C | Frozen contracts (version on main, with B's `audio_path` on `Inbound`) |
 | `app/core/` (handler, grok, prompts, fallback) | C | Real |
 | `app/messaging/` (webhook, bluebubbles, location, session, admin) | A | **Stubs from C1** |
-| `app/data/` clock, places, places.json, stops/segments/slip data | B | Real (B4, B7, B2, B3) |
-| `app/data/sources.py` | B | **Stub from C1** |
-| `app/routing/` (router, params) | B | router is a **stub**; params has the PRD constants |
+| `app/data/` (clock, sources, places, stops/segments/slip data) and `app/api.py` | B | Real |
+| `app/routing/` (router, params) | B | Real |
 
-### Stubs for A and B to replace
+### Stubs for A to replace
 
-- `app/data/sources.py` returns fixed Red arrivals; B5 adds the live poller and the replay frame. `force_mode()` is a stub helper for `/mode`, not part of the contract.
-- `app/routing/router.py` builds a plausible but fake plan from six hard-coded Red stops with a fixed 4-minute wait.
 - `app/messaging/*` are minimal. The webhook stub runs synchronously and returns the replies in the response body. A2 must answer 200 within 100 ms and process the message in a background task.
 
 ## Contract decisions (C to A and B)
@@ -43,7 +40,7 @@ and a deterministic template stands in for Round 2.
 3. **Admin commands are parsed by A before `handle()`** is called. `/status` reads `handler.last_error()`.
 4. **`session.set_pending(user_id, None)` clears** the pending question. `get_pending` does not clear it.
 5. **Pending follow-ups:** when a question is pending and the user then texts a landmark ("I'm at the CRC"), the handler sends Grok both texts together, so the original destination and deadline are kept.
-6. **`TripOption.wait_s` (needs B to confirm):** the handler treats it as the bus's ETA at the boarding stop counted from `now` ("Red bus in 4 min"), not the time spent standing at the stop. Walk-only minutes are computed as `walk.arrive_at - plan.now`, so they don't depend on how B splits the walk fields.
+6. **`TripOption.wait_s`:** B's router sets it to the time spent at the stop after walking there (`board_eta - walk_to_stop_s`). The handler reports the bus ETA from now as `walk_to_stop_s + wait_s` ("Red bus in 7 min"). Walk-only minutes are computed as `walk.arrive_at - plan.now`, so they don't depend on how B splits the walk fields.
 7. **Footer date:** the footer is formatted from `TripPlan.now` (or `clock.now()` when there is no plan). With B's clock on main this prints `[REPLAY Tue 3 Mar 12:00]` at startup.
 8. **Off-topic:** if Grok makes no tool call, the handler sends a fixed one-line decline. Grok's own text is never forwarded, which shuts out prompt injection.
 9. **Grok never does arithmetic:** Round 2 gets a digest of the TripPlan with minutes and HH:MM already computed (`fallback.plan_facts`). A Grok reply that is over 320 characters, or that mentions a time or minute count not in that digest, is thrown away and the template is used.
@@ -55,3 +52,41 @@ and a deterministic template stands in for Round 2.
 
 All times come from `clock.now()`. Nothing outside `app/data/clock.py` reads wall time.
 Session TTLs use `time.monotonic()`, which is elapsed time and not a clock reading.
+
+## Data and routing (B)
+
+Replay-first planner for Red (20), Green (17), and Gold (29). Clough (28) is excluded. App time comes from `app.data.clock.now()`.
+
+Startup is replay at Tuesday 12:00 America/New_York. Each route uses the recorded snapshot `clock.replay_frame` selects (same weekday when that minute is covered, otherwise another weekday, never more than 60 seconds stale).
+
+### Tests
+
+```bash
+cd stinger-text
+python3 -m pip install -r requirements.txt
+python3 -m unittest discover -s tests -v
+```
+
+Run from `stinger-text/` so `app` imports. Klaus → West Village at the default Tuesday noon replay returns a `TripPlan`. The fixed pairs covered by the router tests are Klaus → West Village, West Village → Klaus, Kendeda → West Village, Klaus → North Ave, and CULC → Clough, plus Howey → Bobby Dodd, Skiles → Kendeda, and Student Center → MARTA.
+
+Origins within 250 m are walk-only. If no bus can be caught, the plan says so on `notes`. Origins more than 3 km from campus center still return a plan and ask the caller to confirm the location.
+
+### Verdicts
+
+With a deadline, slack is `deadline - (arrival + slip_buffer_s)`. `MAKE_IT` means slack is at least 180 seconds. `TIGHT` means slack is inside ±180 seconds. Otherwise the verdict is `WONT_MAKE_IT`. No deadline yields `NO_DEADLINE`. Slip changes the verdict only. It does not change `arrive_at`.
+
+### Ride time
+
+Red ride time is the next-stop ETA plus median segment seconds from board to alight.
+
+Green and Gold ride time is `ETA(alight) - ETA(board)` when both ETAs are on the same vehicle and the alight ETA is later. A vehicle with one ETA, equal ETAs, an earlier alight ETA, or only the other vehicle's ETA is not a ride, and segment medians do not fill that gap. The plan walks.
+
+### Live feed
+
+`BUS_FEED_HOST` defaults to `bus.gatech.edu` (same public map as `gatech.transloc.com`). The key and host live in `.env.example` (`BUS_FEED_KEY`). The poller calls `GetRouteStopArrivals` every 20 seconds on a background thread. `get_arrivals()` only reads that cache.
+
+Three consecutive failures in one live session call `clock.set_demo` for the current weekday and minute. A successful poll starts a fresh streak. `set_live` and `set_demo` start a fresh streak too, so returning to live does not inherit the old count.
+
+### Fixture
+
+Probed Mon 2 Nov 2026. `GetMapStopPoints` timed out, so stop names and coordinates are in `stops.json`. One `GetRouteStopArrivals` body is saved at `fixtures/feed_arrivals.json`: 63 stop entries, Red 20 (18), Gold 29 (21), Blue 21 (13), and Clough 28 (11). Green 17 was not running. The parser keeps Red and Gold and drops Blue and Clough.
