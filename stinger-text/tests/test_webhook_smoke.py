@@ -1,7 +1,17 @@
 """C1 done-check: the app imports and a fake webhook returns a reply."""
 from fastapi.testclient import TestClient
 
+import pytest
+
+from app.core import handler
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def no_grok():
+    handler.set_grok(None)  # never hit the real API from tests, even if .env has a key
+    yield
+    handler.set_grok(None)
 
 FAKE_TEXT = {
     "type": "new-message",
