@@ -34,3 +34,14 @@ def test_check_reply_allows_12h_and_rejects_unknown_numbers():
     assert fallback.check_reply("Bus in 5 min, arrive 1:05.", facts) is None
     assert fallback.check_reply("Arrive 13:06.", facts) is None
     assert fallback.check_reply("ok [LIVE]", facts) == "ok"
+
+
+def test_check_reply_rejects_a_verdict_not_in_facts():
+    facts = {"verdict": "TIGHT", "best": {"arrive": "12:08"}, "walk_only": {"minutes": 19}}
+    assert fallback.check_reply("TIGHT. Arrive 12:08. Walking takes 19 min.", facts)
+    assert fallback.check_reply("YOU'LL MAKE IT. Arrive 12:08.", facts) is None
+    assert fallback.check_reply("You won't make it. Arrive 12:08.", facts) is None
+    wont = {**facts, "verdict": "WONT_MAKE_IT"}
+    assert fallback.check_reply("WON'T MAKE IT. Arrive 12:08.", wont)
+    assert fallback.check_reply("Tight, arrive 12:08.", wont) is None
+    assert fallback.check_reply("Make it easily, arrive 12:08.", {**facts, "verdict": "NO_DEADLINE"}) is None

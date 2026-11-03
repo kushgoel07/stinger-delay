@@ -135,7 +135,26 @@ def check_reply(reply: str, facts: dict) -> Optional[str]:
     for n in _MIN_RE.findall(reply):
         if int(n) not in mins:
             return None
+    if _claimed_verdicts(reply) - {facts.get("verdict")}:
+        return None
     return reply
+
+
+_WONT_RE = re.compile(r"\b(?:won'?t|will not|can'?t|cannot|not going to)\s+make\s+it\b", re.I)
+_MAKE_RE = re.compile(r"\bmake\s+it\b", re.I)
+_TIGHT_RE = re.compile(r"\btight\b", re.I)
+
+
+def _claimed_verdicts(reply: str) -> set[str]:
+    """Verdicts a reply asserts. Any verdict other than the plan's gets the reply rejected."""
+    claimed: set[str] = set()
+    if _WONT_RE.search(reply):
+        claimed.add("WONT_MAKE_IT")
+    if _MAKE_RE.search(_WONT_RE.sub(" ", reply)):
+        claimed.add("MAKE_IT")
+    if _TIGHT_RE.search(reply):
+        claimed.add("TIGHT")
+    return claimed
 
 
 # -- local Round 1 stand-in -----------------------------------------------------

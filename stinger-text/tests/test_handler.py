@@ -7,7 +7,7 @@ from app.core import fallback, handler
 from app.core.grok import GrokClient, Intent, Reply
 from app.data import clock, sources
 from app.messaging import session
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from app.models import Inbound, LatLng, Stop, TripOption, TripPlan
 from app.routing import router
@@ -233,3 +233,11 @@ def test_no_grok_end_to_end_local_parser():
     out = handler.handle(msg("I'm at North Ave Apts, can I make my 9:30 in Klaus?"))
     assert "Klaus Advanced Computing Building" in out[0]
     assert re.search(r"\[REPLAY Tue 3 Mar 09:2\d\]$", out[0])
+
+
+def test_deadline_after_midnight_rolls_to_next_day():
+    late = datetime(2026, 3, 3, 22, 40, tzinfo=clock.TZ)
+    assert handler._deadline_dt("00:30", late) == datetime(2026, 3, 4, 0, 30, tzinfo=clock.TZ)
+    # Slightly past stays today, so an already-missed deadline reads as WONT_MAKE_IT.
+    assert handler._deadline_dt("22:30", late) == datetime(2026, 3, 3, 22, 30, tzinfo=clock.TZ)
+    assert handler._deadline_dt("23:00", late) == datetime(2026, 3, 3, 23, 0, tzinfo=clock.TZ)
