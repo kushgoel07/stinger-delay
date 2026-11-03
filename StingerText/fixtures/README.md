@@ -29,3 +29,5 @@ All six A7 decisions match the default code; no gate changes needed.
 
 ## Send body
 `{chatGuid, tempGuid, message, method: "apple-script"}` confirmed working on 2 Nov (S4).
+
+(g) Real iOS "Send My Current Location" is a Find My share: balloonBundleId contains `findmy.FindMyMessagesApp`, text is only U+FFFC, no attachments, payloadData null, so NO coordinates reach us. Pipeline replies with guidance; users share a pin from Apple Maps (map link) or name a building. A `.loc.vcf` pin (older style) is still parsed but only the synthetic placeholder exists.

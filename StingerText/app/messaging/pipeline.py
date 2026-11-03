@@ -9,6 +9,7 @@ from app.messaging import admin, bluebubbles, gate, location, replies, session
 from app.models import Inbound
 
 log = logging.getLogger(__name__)
+FINDMY_TEXT = "I can't read Find My locations. Share a pin from Apple Maps, or tell me a building name."
 
 
 def normalize(address: str) -> str:
@@ -47,12 +48,13 @@ async def process(event: dict) -> None:
     # 1. filter
     chats = data.get("chats") or []
     addr = (data.get("handle") or {}).get("address")
-    text = data.get("text") or None
+    text = (data.get("text") or "").replace("\ufffc", "").strip() or None  # drop attachment placeholder char
+    findmy = "findmy" in str(data.get("balloonBundleId") or "").lower()  # "Send My Current Location": no coordinates
     atts = data.get("attachments") or []
     if data.get("isFromMe") or data.get("isGroup") or len(chats) != 1 or not addr:
         return
     chat = chats[0].get("guid") or ""
-    if ";+;" in chat or not chat or not (text or atts):
+    if ";+;" in chat or not chat or not (text or atts or findmy):
         return
     guid = data.get("guid")
     # 2. dedupe
@@ -63,7 +65,7 @@ async def process(event: dict) -> None:
     tail = user_id[-4:]
     try:
         # 4. gate
-        has_pin = any(location._is_loc(a) for a in atts) or (
+        has_pin = findmy or any(location._is_loc(a) for a in atts) or (
             bool(text) and location.parse_map_text(text) is not None
         )
         allowed, cleaned = gate.allow(user_id, text, has_pin)
@@ -83,6 +85,9 @@ async def process(event: dict) -> None:
                 await _answer(user_id, chat, pending, loc)
             else:
                 await bluebubbles.send_text(chat, "Got your location. Where to?")
+            return
+        if findmy:
+            await bluebubbles.send_text(chat, FINDMY_TEXT)
             return
         # 7. text
         if not cleaned or not cleaned.strip():

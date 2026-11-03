@@ -56,3 +56,18 @@ async def test_users_independent(calls):
     await pipeline.process(ev("+15550001111", PIN))
     await pipeline.process(ev("+15550002222", "to Klaus?"))
     assert calls[0].user_id == "+15550002222" and calls[0].location is None
+
+
+async def test_findmy_share_gets_guidance_not_handler(monkeypatch):
+    # Real iOS "Send My Current Location": Find My balloon, text is only U+FFFC, no attachments.
+    sent, calls = [], []
+    async def fake_send(chat, text): sent.append(text)
+    async def fake_handle(msg): calls.append(msg); return ["x"]
+    monkeypatch.setattr(pipeline.bluebubbles, "send_text", fake_send)
+    monkeypatch.setattr(pipeline.handler, "handle", fake_handle)
+    session.reset_all()
+    ev = {"type": "new-message", "data": {"guid": "fm-1", "text": "￼", "handle": {"address": "+15550001111"},
+          "chats": [{"guid": "any;-;+15550001111"}], "attachments": [], "isFromMe": False,
+          "balloonBundleId": "com.apple.messages.MSMessageExtensionBalloonPlugin:0:com.apple.findmy.FindMyMessagesApp"}}
+    await pipeline.process(ev)
+    assert sent == [pipeline.FINDMY_TEXT] and calls == []
