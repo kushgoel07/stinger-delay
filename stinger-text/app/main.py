@@ -10,6 +10,7 @@ load_dotenv()
 
 from fastapi import FastAPI  # noqa: E402
 
+from app.api import router as data_router  # noqa: E402
 from app.data import clock, sources  # noqa: E402
 from app.messaging import webhook  # noqa: E402
 
@@ -18,13 +19,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # B registers the 20 s live-feed poller here (B5); cancel it after the yield.
+    # B's live-feed poller starts lazily on the first LIVE get_arrivals(); stop it on shutdown.
     logging.getLogger("stingertext").info("StingerText up: mode=%s clock=%s", sources.mode(), clock.now())
     yield
+    sources.stop_poller()
 
 
 app = FastAPI(title="StingerText", lifespan=lifespan)
 app.include_router(webhook.router)
+app.include_router(data_router)
+
+
+@app.get("/")
+def root() -> dict:
+    return {"service": "stinger-text", "mode": sources.mode(), "now": clock.now().isoformat()}
 
 
 @app.get("/health")

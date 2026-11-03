@@ -27,7 +27,6 @@ def handle_admin(msg: Inbound) -> Optional[list[str]]:
     if cmd == "/clock":
         if arg.lower() == "live":
             clock.set_live()
-            sources.force_mode(None)
             return ["Clock: live."]
         day, _, hhmm = arg.partition(" ")
         try:
@@ -36,7 +35,11 @@ def handle_admin(msg: Inbound) -> Optional[list[str]]:
             return [f"Clock not set: {e}"]
         return [f"Clock: {clock.now():%a %d %b %H:%M} (replay)."]
     if cmd == "/mode" and arg.lower() in ("live", "replay"):
-        sources.force_mode(arg)
+        if arg.lower() == "live":
+            clock.set_live()
+        else:
+            now = clock.now()
+            clock.set_demo(f"{now:%a}", f"{now:%H:%M}")
         return [f"Mode: {sources.mode()}."]
     if cmd == "/where" and arg:
         place = places.resolve(arg)[0]
