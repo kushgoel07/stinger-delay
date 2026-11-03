@@ -29,3 +29,12 @@ def test_is_from_me_dropped():
     with TestClient(app) as client:
         r = client.post("/webhook/bluebubbles", json=payload)
     assert r.json()["replies"] == []
+
+
+def test_admin_where_unknown_place_does_not_crash(monkeypatch):
+    from app.messaging import admin
+    from app.models import Inbound
+
+    monkeypatch.setenv("ADMIN_HANDLES", "+14045550100")
+    out = admin.handle_admin(Inbound("+14045550100", "g", "/where hogwarts", None, None))
+    assert out and out[0].startswith("Unknown place")

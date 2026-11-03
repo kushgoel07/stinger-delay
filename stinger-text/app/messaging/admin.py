@@ -42,7 +42,10 @@ def handle_admin(msg: Inbound) -> Optional[list[str]]:
             clock.set_demo(f"{now:%a}", f"{now:%H:%M}")
         return [f"Mode: {sources.mode()}."]
     if cmd == "/where" and arg:
-        place = places.resolve(arg)[0]
+        hits = places.resolve(arg)
+        if not hits:
+            return [f"Unknown place: {arg}."]
+        place = hits[0]
         session.set_location(msg.user_id, place.loc)
         return [f"Location set to {place.name}."]
     if cmd == "/status":
