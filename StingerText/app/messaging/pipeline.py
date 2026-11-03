@@ -91,8 +91,8 @@ async def process(event: dict) -> None:
     except Exception as e:
         # 8. errors
         log.error("pipeline failed for ...%s: %s", tail, type(e).__name__)
-        getattr(replies, "record_error", lambda *a: None)(e)
-        msg = getattr(replies, "TIMEOUT_TEXT", replies.ERROR_TEXT) if isinstance(e, asyncio.TimeoutError) else replies.ERROR_TEXT
+        replies.record_error("pipeline", e)
+        msg = replies.TIMEOUT_TEXT if isinstance(e, asyncio.TimeoutError) else replies.ERROR_TEXT
         try:
             await bluebubbles.send_text(chat, msg)
         except Exception as e2:
