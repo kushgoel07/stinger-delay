@@ -10,7 +10,7 @@ EMAIL = "user@example.com"
 LAT, LON = "33.77720", "-84.39560"
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-PHONE_RE = re.compile(r"\+\d{10,15}|(?<![\d.])\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}(?!\d)")
+PHONE_RE = re.compile(r"\+\d{10,15}|(?<![\d.])\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}(?!\d)|(?<![\d.])\d{10}(?![\d.])")  # last: bare 10 digits, e.g. uncanonicalizedId
 COORD_RE = re.compile(r"-?\d{1,3}\.\d{3,}(,|%2C|;|,\s)-?\d{1,3}\.\d{3,}", re.I)
 NAME_KEYS = {"firstName": "Test", "lastName": "User", "displayName": "Test User"}
 COORD_KEYS = {"latitude": float(LAT), "lat": float(LAT), "longitude": float(LON), "lng": float(LON), "lon": float(LON)}

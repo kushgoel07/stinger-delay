@@ -34,3 +34,8 @@ def test_vcf_is_scrubbed() -> None:
     assert "Jane" not in out and "404" not in out and "j@x.org" not in out
     assert "FN:Test User" in out
     assert scrub_text("+15550001111") == "+15550001111"
+
+
+def test_bare_ten_digit_number_is_scrubbed() -> None:
+    out = json.dumps(scrub_value({"handle": {"uncanonicalizedId": "4045551234"}, "dateCreated": 1793669849160}))
+    assert "4045551234" not in out and "1793669849160" in out
