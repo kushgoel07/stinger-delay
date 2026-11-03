@@ -56,4 +56,4 @@ if __name__ == "__main__":
     # access_log off: the request line would include ?password=...
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-    uvicorn.run(app, host="127.0.0.1", port=8000, access_log=False, log_level="warning")
+    uvicorn.run(app, host=["127.0.0.1", "::1"], port=8000, access_log=False, log_level="warning")

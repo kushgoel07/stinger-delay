@@ -19,6 +19,7 @@ def test_fixture_parses_to_klaus():
     "http://maps.apple.com/?ll=33.7772,-84.3956&q=My%20Location",
     r"http://maps.apple.com/?ll=33.7772\,-84.3956&q=x",
     "http://maps.apple.com/?ll=33.7772%2C-84.3956",
+    "https://maps.apple.com/place?coordinate=33.7772,-84.3956&name=Klaus&map=explore",
     "https://maps.apple.com/?q=33.7772,-84.3956",
     "https://www.google.com/maps/@33.7772,-84.3956,17z",
     "https://www.google.com/maps?q=33.7772,-84.3956",

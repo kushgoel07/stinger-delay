@@ -6,6 +6,7 @@ _N = r"(-?\d{1,3}(?:\.\d+)?)"
 _SEP = r"(?:\\?,|%2C)"
 _PATTERNS = [
     re.compile(r"maps\.apple\.com[^\s]*?[?&]ll=" + _N + _SEP + _N, re.I),
+    re.compile(r"maps\.apple\.com[^\s]*?[?&]coordinate=" + _N + _SEP + _N, re.I),  # real share link (A1 capture)
     re.compile(r"maps\.apple\.com[^\s]*?[?&]q=" + _N + _SEP + _N + r"(?![\d.])", re.I),
     re.compile(r"google\.[a-z.]+/maps[^\s]*?@" + _N + _SEP + _N, re.I),
     re.compile(r"google\.[a-z.]+/maps[^\s]*?[?&]q=" + _N + _SEP + _N + r"(?![\d.])", re.I),
