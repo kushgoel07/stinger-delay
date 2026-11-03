@@ -63,3 +63,9 @@ def test_only_location_file_downloaded():
 def test_bad_attachment_returns_none(data):
     atts = [{"guid": "loc", "transferName": "x.loc.vcf"}]
     assert asyncio.run(extract(None, atts, Fake(data))) is None
+
+
+def test_real_maplink_fixture():
+    import json
+    d = json.loads((Path(__file__).parents[2] / "fixtures" / "bb_maplink.json").read_text())
+    assert parse_map_text(d["data"]["text"]) == LatLng(33.77720, -84.39560)

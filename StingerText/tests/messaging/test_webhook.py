@@ -1,4 +1,4 @@
-# TODO(SETUP): these use *.PLACEHOLDER.* fixtures; switch to scrubbed real fixtures once captured.
+# TODO(SETUP): only bb_group is still a *.PLACEHOLDER.* fixture (never captured); the rest are real scrubbed captures.
 import asyncio
 import copy
 import json
@@ -17,7 +17,10 @@ PW = "pw"
 
 
 def fx(name: str) -> dict:
-    return json.loads((FIX / f"{name}.PLACEHOLDER.json").read_text())
+    f = FIX / f"{name}.json"
+    if not f.exists():
+        f = FIX / f"{name}.PLACEHOLDER.json"
+    return json.loads(f.read_text())
 
 
 @pytest.fixture
@@ -61,7 +64,7 @@ def test_text_one_call(env):
     settle(calls, 1)
     assert len(calls) == 1
     assert calls[0].user_id == "+15550001111"
-    assert calls[0].text == "can I make it to Klaus?"
+    assert calls[0].text == fx("bb_text")["data"]["text"]
 
 
 @pytest.mark.parametrize("pw", [None, "wrong"])

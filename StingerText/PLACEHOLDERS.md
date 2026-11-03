@@ -1,6 +1,5 @@
-# Placeholders (clear when setup S1-S4 pass and A1 runs for real)
-- fixtures/*.PLACEHOLDER.* : synthetic, built from the Brief's example payload. Finish: capture via capture_webhook.py, scrub, replace, update tests.
-- Attachment download endpoint, exact payload fields, ADMIN_HANDLES format: TODO(SETUP) confirm from real capture.
-- DRY_RUN=1 until setup done.
-- Uncommitted stubs (C/B own): app/models.py, app/core/handler.py, app/data/*, requirements.txt (until C's lands).
-- Send body CONFIRMED (S4 passed, 2 Nov): {chatGuid,tempGuid,message,method:apple-script}. Remove TODO(SETUP) markers in bluebubbles.py/send_test.py.
+# Still placeholders
+- fixtures/bb_group.PLACEHOLDER.json: synthetic group payload. Finish: capture a real group message via capture_webhook.py, scrub, rename to bb_group.json, update tests.
+- fixtures/CL.PLACEHOLDER.loc.vcf (and bb_location.PLACEHOLDER.json): synthetic location pin. Finish: capture a real shared-location .loc.vcf message, scrub, replace, update test_location.py.
+- Uncommitted stubs (C/B own): app/models.py, app/core/handler.py, app/data/*, requirements.txt. Finish: C/B's real versions land.
+- DRY_RUN=1 in the local env file. Finish: remove it (or set 0) when ready to send for real.

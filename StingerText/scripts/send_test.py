@@ -1,11 +1,15 @@
 """Send one text to an admin handle: send_test.py --to <handle> --text <text>. DRY_RUN=1 prints instead."""
 import argparse
+import asyncio
 import os
 import sys
-import uuid
+from pathlib import Path
 
-import httpx
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from dotenv import load_dotenv
+
+from app.messaging import bluebubbles
 
 
 def main() -> int:
@@ -18,24 +22,11 @@ def main() -> int:
     if a.to not in admins:
         print("REFUSED: --to is not in ADMIN_HANDLES")
         return 1
-    body = {
-        "chatGuid": f"iMessage;-;{a.to}",
-        "tempGuid": f"temp-{uuid.uuid4()}",
-        "message": a.text,
-        "method": "apple-script",
-    }
     if os.environ.get("DRY_RUN") == "1":
         print(f"DRY_RUN: would send to ...{a.to[-4:]}")
         return 0
-    # Body form confirmed against the real server (S4, 2 Nov).
     try:
-        r = httpx.post(
-            f"{os.environ['BB_URL'].rstrip('/')}/api/v1/message/text",
-            params={"password": os.environ["BB_PASSWORD"]},
-            json=body,
-            timeout=30,
-        )
-        r.raise_for_status()
+        asyncio.run(bluebubbles.send_text(f"iMessage;-;{a.to}", a.text))
     except Exception as e:
         print(f"FAIL: {type(e).__name__}")
         return 1
