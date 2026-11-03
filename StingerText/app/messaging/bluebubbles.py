@@ -78,8 +78,7 @@ async def send_text(chat_guid: str, text: str) -> None:
     if os.environ.get("DRY_RUN") == "1":
         log.info("DRY_RUN send to ...%s", chat_guid[-4:])
         return
-    # TODO(SETUP): confirm this body against the real server. If it answers 400, try
-    # "text" instead of "message", or drop "method" (see brief send-body fallback).
+    # Body confirmed against the real server (S4, 2 Nov).
     body = {
         "chatGuid": chat_guid,
         "tempGuid": f"temp-{uuid.uuid4()}",

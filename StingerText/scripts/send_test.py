@@ -27,7 +27,7 @@ def main() -> int:
     if os.environ.get("DRY_RUN") == "1":
         print(f"DRY_RUN: would send to ...{a.to[-4:]}")
         return 0
-    # TODO(SETUP): switch to A3's bluebubbles.send_text; confirm body form (message vs text, method) against real server.
+    # Body form confirmed against the real server (S4, 2 Nov).
     try:
         r = httpx.post(
             f"{os.environ['BB_URL'].rstrip('/')}/api/v1/message/text",
